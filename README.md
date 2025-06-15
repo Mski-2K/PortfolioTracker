@@ -1,13 +1,16 @@
 # Portfolio Manager
 
-A simple portfolio management system for XTB transactions that visualizes capital gains and currency exchange gains.
+A simple portfolio management system for XTB transactions that visualizes your portfolio value over time in a selected currency.
 
 ## Features
 
-- Upload and process XTB Excel files
-- Visualize capital gains with bar charts
-- Track currency exchange gains
-- Integration with NBP API for currency rates
+- Add buy/sell transactions for any instrument (e.g. AAPL, MSFT, etc.)
+- Select a global portfolio currency (PLN, USD, EUR, GBP) in the top right corner
+- All transaction amounts are entered in the selected portfolio currency
+- Automatic conversion to instrument currency using NBP rates on transaction date
+- Portfolio value chart over time (week/month/quarter) in the selected currency
+- Real-time price and currency conversion for portfolio valuation
+- Capital/currency gain calculation based on real NBP rates
 - MongoDB integration for data persistence
 
 ## Prerequisites
@@ -28,12 +31,7 @@ npm install
 ```
 MONGODB_URI=mongodb://localhost:27017/portfolio-manager
 PORT=3000
-STOCK_API_KEY=your_stock_api_key_here
-```
-
-4. Create an `uploads` directory in the root folder:
-```bash
-mkdir uploads
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key
 ```
 
 ## Running the Application
@@ -52,15 +50,15 @@ The application will be available at `http://localhost:3000`
 
 ## Usage
 
-1. Open the application in your web browser
-2. Upload your XTB Excel file using the upload form
-3. View the generated charts showing capital gains and currency exchange gains
+1. Select your portfolio currency in the top right corner (default: PLN)
+2. Add transactions using the form (amount is always in the selected portfolio currency)
+3. View the portfolio value chart over time (choose week/month/quarter)
+4. All calculations and conversions are automatic (NBP rates, Yahoo Finance prices)
 
 ## API Integration
 
-The application integrates with:
 - NBP API for currency exchange rates
-- Stock market API for current stock prices (requires API key)
+- Yahoo Finance for historical and current stock prices
 
 ## License
 
