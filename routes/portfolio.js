@@ -333,7 +333,7 @@ async function getNBPRate(currency, date) {
             return response.data.rates[0].mid;
         } catch (e) {
             console.error('NBP rate error:', error.response?.data || error.message);
-            return 1;
+            return null;
         }
     }
 }
