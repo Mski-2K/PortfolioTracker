@@ -51,8 +51,9 @@ router.post('/transactions', async (req, res) => {
             if (portfolioCurrency !== instrumentCurrency) {
                 const ratePortfolio = await getNBPRate(portfolioCurrency, date);
                 const rateInstrument = await getNBPRate(instrumentCurrency, date);
-                amountInInstrumentCurrency = amount * (rateInstrument / ratePortfolio);
+                amountInInstrumentCurrency = amount * (ratePortfolio / rateInstrument);
             }
+            console.log(`Portfolio currency: ${portfolioCurrency}, instrument currency: ${instrumentCurrency}`);
             quantity = amountInInstrumentCurrency / price;
         } else if (transactionType === 'sell') {
             const allTransactions = await Transaction.find({ instrument }).sort({ date: 1 });
@@ -69,9 +70,8 @@ router.post('/transactions', async (req, res) => {
             }
             let amountInInstrumentCurrency = amount;
             if (portfolioCurrency !== instrumentCurrency) {
-                const ratePortfolio = await getNBPRate(portfolioCurrency, date);
                 const rateInstrument = await getNBPRate(instrumentCurrency, date);
-                amountInInstrumentCurrency = amount * (rateInstrument / ratePortfolio);
+                amountInInstrumentCurrency = amount / rateInstrument;
             }
             quantity = amountInInstrumentCurrency / price;
             if (owned <= 0) {
@@ -408,20 +408,24 @@ router.get('/portfolio/value', async (req, res) => {
             return res.json({ valueSeries: [] });
         }
         const firstDate = moment(transactions[0].date).startOf('day');
-        const lastDate = moment().startOf('day');
+        const today = moment().startOf('day');
         let current = firstDate.clone();
         const periods = [];
-        while (current.isSameOrBefore(lastDate)) {
+        while (current.isSameOrBefore(today)) {
             periods.push(current.clone());
             if (interval === 'week') current.add(1, 'week');
             else if (interval === 'month') current.add(1, 'month');
             else if (interval === 'quarter') current.add(1, 'quarter');
         }
         const valueSeries = [];
+        // Cache na ostatni znaleziony kurs NBP dla każdej waluty
+        const lastKnownNBPRate = {};
         for (let i = 0; i < periods.length; i++) {
             const periodStart = periods[i];
-            const periodEnd = periods[i + 1] ? periods[i + 1].clone().subtract(1, 'day') : lastDate;
-            const txs = transactions.filter(t => moment(t.date).isSameOrBefore(periodEnd));
+            const periodEnd = periods[i + 1] ? periods[i + 1].clone().subtract(1, 'day') : today;
+            const isLastPeriod = i === periods.length - 1;
+            const effectiveDate = isLastPeriod ? today : periodEnd;
+            const txs = transactions.filter(t => moment(t.date).isSameOrBefore(effectiveDate));
             const holdings = {};
             for (const t of txs) {
                 if (!holdings[t.instrument]) holdings[t.instrument] = { quantity: 0, currency: t.currency };
@@ -431,17 +435,53 @@ router.get('/portfolio/value', async (req, res) => {
             let totalValue = 0;
             for (const [instrument, h] of Object.entries(holdings)) {
                 if (h.quantity <= 0) continue;
-                const price = await getHistoricalPrice(instrument, periodEnd.format('YYYY-MM-DD'));
+                // Szukaj najnowszej dostępnej ceny akcji
+                let searchDatePrice = effectiveDate.clone();
+                let price = null;
+                for (let tries = 0; tries < 7; tries++) {
+                    price = await getHistoricalPrice(instrument, searchDatePrice.format('YYYY-MM-DD'));
+                    if (price) break;
+                    searchDatePrice = searchDatePrice.clone().subtract(1, 'day');
+                }
                 if (!price) continue;
-                const rateInstrument = await getNBPRate(h.currency, periodEnd.format('YYYY-MM-DD'));
-                const ratePortfolio = await getNBPRate(portfolioCurrency, periodEnd.format('YYYY-MM-DD'));
-                totalValue += h.quantity * price * (ratePortfolio / rateInstrument);
+                // Szukaj najnowszego dostępnego kursu NBP instrumentu
+                let searchDateInstr = effectiveDate.clone();
+                let rateInstrument = null;
+                for (let tries = 0; tries < 7; tries++) {
+                    rateInstrument = await getNBPRate(h.currency, searchDateInstr.format('YYYY-MM-DD'));
+                    if (rateInstrument) {
+                        lastKnownNBPRate[h.currency] = rateInstrument;
+                        break;
+                    }
+                    searchDateInstr = searchDateInstr.clone().subtract(1, 'day');
+                }
+                if (!rateInstrument) {
+                    rateInstrument = lastKnownNBPRate[h.currency];
+                }
+                if (!rateInstrument) continue;
+                // Szukaj najnowszego dostępnego kursu NBP portfela
+                let searchDatePort = effectiveDate.clone();
+                let ratePortfolio = null;
+                for (let tries = 0; tries < 7; tries++) {
+                    ratePortfolio = await getNBPRate(portfolioCurrency, searchDatePort.format('YYYY-MM-DD'));
+                    if (ratePortfolio) {
+                        lastKnownNBPRate[portfolioCurrency] = ratePortfolio;
+                        break;
+                    }
+                    searchDatePort = searchDatePort.clone().subtract(1, 'day');
+                }
+                if (!ratePortfolio) {
+                    ratePortfolio = lastKnownNBPRate[portfolioCurrency];
+                }
+                if (!ratePortfolio) continue;
+                totalValue += h.quantity * price * rateInstrument / ratePortfolio;
             }
             valueSeries.push({
                 period: getPeriodLabel(periodStart, interval),
                 value: totalValue
             });
         }
+        console.log(valueSeries);
         res.json({ valueSeries });
     } catch (error) {
         console.error('Error in /portfolio/value:', error);

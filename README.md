@@ -29,7 +29,7 @@ npm install
 
 3. Utwórz plik `.env` w katalogu głównym z następującymi zmiennymi:
 ```
-MONGODB_URI=mongodb://localhost:27017/portfolio-manager
+MONGODB_URI=tu_wstaw_swoj_mongo_db_uri
 PORT=3000
 ALPHA_VANTAGE_API_KEY=tu_wstaw_swoj_klucz_api
 ```
