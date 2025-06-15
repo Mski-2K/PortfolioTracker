@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container d-flex justify-content-between align-items-center">
+            <a class="navbar-brand" href="/">Portfolio Manager</a>
+            <div>
+                <label for="globalCurrency" class="text-white me-2">Portfolio currency:</label>
+                <select id="globalCurrency" class="form-select d-inline-block w-auto">
+                    <option value="PLN">PLN</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                </select>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        Add New Transaction
+                    </div>
+                    <div class="card-body">
+                        <form id="transactionForm">
+                            <div class="mb-3">
+                                <label for="instrument" class="form-label">Ticker</label>
+                                <input type="text" class="form-control" id="instrument" name="instrument" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="transactionType" class="form-label">Transaction Type</label>
+                                <select class="form-select" id="transactionType" name="transactionType" required>
+                                    <option value="buy">Buy</option>
+                                    <option value="sell">Sell</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="date" class="form-label">Purchase/Sale Date</label>
+                                <input type="date" class="form-control" id="date" name="date" 
+                                       max="<%= new Date().toISOString().split('T')[0] %>" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="amount" class="form-label">Amount (<span id="amountCurrencyLabel"></span>)</label>
+                                <input type="number" class="form-control" id="amount" name="amount" step="0.01" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add Transaction</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        Current Portfolio
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table" id="portfolioTable">
+                                <thead>
+                                    <tr>
+                                        <th>Instrument</th>
+                                        <th>Quantity</th>
+                                        <th>Avg. Price</th>
+                                        <th>Current Value</th>
+                                        <th>Profit/Loss</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        Capital Gains
+                    </div>
+                    <div class="card-body">
+                        <canvas id="capitalGainsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        Currency Exchange Gains
+                    </div>
+                    <div class="card-body">
+                        <canvas id="currencyGainsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Portfolio Value Over Time (PLN)</span>
+                        <select id="intervalSelect" class="form-select w-auto">
+                            <option value="week">Week</option>
+                            <option value="month">Month</option>
+                            <option value="quarter">Quarter</option>
+                        </select>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="portfolioValueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Load or set default global currency
+        function getGlobalCurrency() {
+            return localStorage.getItem('globalCurrency') || 'PLN';
+        }
+        function setGlobalCurrency(val) {
+            localStorage.setItem('globalCurrency', val);
+        }
+        document.getElementById('globalCurrency').value = getGlobalCurrency();
+        document.getElementById('globalCurrency').addEventListener('change', function() {
+            setGlobalCurrency(this.value);
+            location.reload(); // reload to recalculate everything in new currency
+        });
+
+        // Chart.js instances
+        let capitalGainsChartInstance = null;
+        let currencyGainsChartInstance = null;
+        let portfolioValueChartInstance = null;
+
+        document.getElementById('transactionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = {
+                instrument: document.getElementById('instrument').value,
+                transactionType: document.getElementById('transactionType').value,
+                date: document.getElementById('date').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                currency: getGlobalCurrency()
+            };
+            console.log('Sending transaction data:', formData);
+            
+            try {
+                const response = await fetch('/transactions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error adding transaction');
+                }
+                
+                updatePortfolioTable(data.portfolio);
+                updateCharts(data.charts);
+                e.target.reset();
+            } catch (error) {
+                console.error('Error:', error);
+                alert(error.message || 'Error adding transaction');
+            }
+        });
+
+        function updatePortfolioTable(portfolio) {
+            const tbody = document.querySelector('#portfolioTable tbody');
+            tbody.innerHTML = '';
+            
+            portfolio.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.instrument}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.avgPrice.toFixed(2)} ${item.currency}</td>
+                    <td>${item.currentValue.toFixed(2)} ${item.currency}</td>
+                    <td class="${item.profitLoss >= 0 ? 'text-success' : 'text-danger'}">
+                        ${item.profitLoss.toFixed(2)} ${item.currency}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateCharts(data) {
+            // Destroy old charts if they exist
+            if (capitalGainsChartInstance) {
+                capitalGainsChartInstance.destroy();
+            }
+            if (currencyGainsChartInstance) {
+                currencyGainsChartInstance.destroy();
+            }
+
+            // Create new charts
+            capitalGainsChartInstance = new Chart(document.getElementById('capitalGainsChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.capitalGains.map(item => item.date),
+                    datasets: [{
+                        label: 'Capital Gains',
+                        data: data.capitalGains.map(item => item.value),
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                }
+            });
+
+            currencyGainsChartInstance = new Chart(document.getElementById('currencyGainsChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.currencyGains.map(item => item.date),
+                    datasets: [{
+                        label: 'Currency Exchange Gains',
+                        data: data.currencyGains.map(item => item.value),
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        borderWidth: 1
+                    }]
+                }
+            });
+        }
+
+        async function fetchAndDrawValueChart(interval) {
+            try {
+                const response = await fetch(`/portfolio/value?interval=${interval}&portfolioCurrency=${getGlobalCurrency()}`);
+                const data = await response.json();
+                updateValueChart(data.valueSeries);
+            } catch (error) {
+                console.error('Error loading value data:', error);
+            }
+        }
+
+        function updateValueChart(valueSeries) {
+            if (portfolioValueChartInstance) {
+                portfolioValueChartInstance.destroy();
+            }
+            const ctx = document.getElementById('portfolioValueChart');
+            portfolioValueChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: valueSeries.map(item => item.period),
+                    datasets: [
+                        {
+                            label: 'Portfolio Value (PLN)',
+                            data: valueSeries.map(item => item.value),
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            fill: true,
+                            tension: 0.2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'top' },
+                        title: { display: false }
+                    },
+                    scales: {
+                        x: {},
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('intervalSelect').addEventListener('change', function() {
+            fetchAndDrawValueChart(this.value);
+        });
+
+        // Initial load
+        window.addEventListener('load', async () => {
+            fetchAndDrawValueChart(document.getElementById('intervalSelect').value);
+            try {
+                const response = await fetch('/portfolio');
+                const data = await response.json();
+                updatePortfolioTable(data.portfolio);
+                updateCharts(data.charts);
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+            }
+        });
+
+        // Update label for amount currency
+        function updateAmountCurrencyLabel() {
+            document.getElementById('amountCurrencyLabel').textContent = getGlobalCurrency();
+        }
+        updateAmountCurrencyLabel();
+        document.getElementById('globalCurrency').addEventListener('change', updateAmountCurrencyLabel);
+    </script>
+</body>
+</html> 
