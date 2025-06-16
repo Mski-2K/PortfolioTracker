@@ -62,8 +62,6 @@ npm install
 3. Utwórz plik `.env` w katalogu głównym z następującymi zmiennymi:
 ```
 MONGODB_URI=tu_wstaw_swoj_mongo_db_uri
-PORT=5000
-nbpApiUrl: 'http://api.nbp.pl/api/exchangerates/rates',
 ```
 
 ## Uruchomienie aplikacji
