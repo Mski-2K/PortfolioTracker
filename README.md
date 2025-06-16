@@ -1,6 +1,42 @@
 # Portfolio Manager
 
-Prosty system do zarządzania portfelem inwestycyjnym (np. z XTB), który wizualizuje wartość portfela w czasie w wybranej walucie.
+## Sprawozdanie z projektu
+
+### Opis projektu
+Portfolio Manager to aplikacja webowa służąca do zarządzania portfelem inwestycyjnym. Pozwala na rejestrowanie transakcji kupna i sprzedaży akcji (lub innych instrumentów), automatyczne przeliczanie wartości portfela w wybranej walucie oraz wizualizację zmian wartości portfela w czasie. System korzysta z rzeczywistych kursów walut NBP oraz cen akcji z Yahoo Finance.
+
+### Założenia i cele
+- Użytkownik może wybrać globalną walutę portfela (PLN, USD, EUR, GBP).
+- Wszystkie kwoty transakcji są podawane w tej walucie, niezależnie od waluty instrumentu.
+- System automatycznie przelicza kwotę na walutę instrumentu po kursie NBP z dnia transakcji.
+- Wartość portfela jest zawsze prezentowana w wybranej walucie portfela.
+- Wykres wartości portfela pokazuje zmiany w czasie (tygodnie/miesiące/kwartały).
+- System obsługuje zarówno zyski kapitałowe, jak i walutowe.
+
+### Architektura i technologie
+- **Backend:** Node.js + Express
+- **Frontend:** EJS (szablony), Bootstrap, Chart.js
+- **Baza danych:** MongoDB (przechowywanie transakcji)
+- **API zewnętrzne:**
+  - Yahoo Finance (ceny akcji)
+  - NBP (kursy walut)
+
+### Najważniejsze funkcje
+- Dodawanie transakcji kupna/sprzedaży z automatycznym przeliczeniem walut
+- Wybór waluty portfela (globalnie dla całej aplikacji)
+- Przeliczanie wartości portfela na wybraną walutę na podstawie kursów NBP
+- Wykres wartości portfela w czasie (z wyborem przedziału: tydzień, miesiąc, kwartał)
+- Obsługa różnych walut instrumentów (PLN, USD, EUR, GBP)
+- FIFO przy rozliczaniu sprzedaży akcji
+- Obsługa braku kursów NBP/cen akcji (cache ostatniego znanego kursu/ceny)
+
+### Napotkane problemy i ich rozwiązania
+- **Przeliczanie walut:** Początkowo logika przeliczania była błędna (mnożenie zamiast dzielenia przez kurs), co prowadziło do zawyżonych ilości akcji. Poprawiono na dzielenie przez kurs NBP.
+- **Brak kursów/cen z danego dnia:** Gdy NBP lub Yahoo Finance nie zwracały danych z danego dnia (weekendy, święta), wartości były zaniżone. Rozwiązano przez szukanie najnowszego dostępnego kursu/ceny wstecz oraz cache ostatniego znanego kursu.
+- **Zgodność walut:** Ujednolicono logikę, by wszystkie wartości były zawsze przeliczane na wybraną walutę portfela.
+- **Wizualizacja:** Wprowadzono wykres wartości portfela w czasie, zamiast tylko zrealizowanych zysków.
+
+---
 
 ## Funkcje
 
