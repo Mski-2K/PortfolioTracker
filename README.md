@@ -27,14 +27,10 @@ Portfolio Manager to aplikacja webowa służąca do zarządzania portfelem inwes
 - Przeliczanie wartości portfela na wybraną walutę na podstawie kursów NBP
 - Wykres wartości portfela w czasie (z wyborem przedziału: tydzień, miesiąc, kwartał)
 - Obsługa różnych walut instrumentów (PLN, USD, EUR, GBP)
-- FIFO przy rozliczaniu sprzedaży akcji
 - Obsługa braku kursów NBP/cen akcji (cache ostatniego znanego kursu/ceny)
 
 ### Napotkane problemy i ich rozwiązania
-- **Przeliczanie walut:** Początkowo logika przeliczania była błędna (mnożenie zamiast dzielenia przez kurs), co prowadziło do zawyżonych ilości akcji. Poprawiono na dzielenie przez kurs NBP.
 - **Brak kursów/cen z danego dnia:** Gdy NBP lub Yahoo Finance nie zwracały danych z danego dnia (weekendy, święta), wartości były zaniżone. Rozwiązano przez szukanie najnowszego dostępnego kursu/ceny wstecz oraz cache ostatniego znanego kursu.
-- **Zgodność walut:** Ujednolicono logikę, by wszystkie wartości były zawsze przeliczane na wybraną walutę portfela.
-- **Wizualizacja:** Wprowadzono wykres wartości portfela w czasie, zamiast tylko zrealizowanych zysków.
 
 ---
 
@@ -66,8 +62,6 @@ npm install
 3. Utwórz plik `.env` w katalogu głównym z następującymi zmiennymi:
 ```
 MONGODB_URI=tu_wstaw_swoj_mongo_db_uri
-PORT=3000
-ALPHA_VANTAGE_API_KEY=tu_wstaw_swoj_klucz_api
 ```
 
 ## Uruchomienie aplikacji
@@ -82,7 +76,7 @@ Tryb produkcyjny:
 npm start
 ```
 
-Aplikacja będzie dostępna pod adresem `http://localhost:3000`
+Aplikacja będzie dostępna pod adresem `http://localhost:5000`
 
 ## Użytkowanie
 
@@ -95,7 +89,3 @@ Aplikacja będzie dostępna pod adresem `http://localhost:3000`
 
 - API NBP do pobierania kursów walut
 - Yahoo Finance do pobierania historycznych i bieżących cen akcji
-
-## Licencja
-
-MIT 
